@@ -1,0 +1,183 @@
+---
+title: "IERespondent_FA_logistic"
+author: "Xiaomeng CHAI"
+date: "Wednesday, July 01, 2015"
+modify date: 20150709
+output: word_document
+---
+
+```{r}
+all_thr_june <- read.csv(file= "C:/Users/xiachai/Desktop/Xiaomeng Chai/LA/RB/IER.csv", head=TRUE, strip.white=T)
+
+###exclude current users. Create new plan+product outcome variable "plpr"
+filtered <- subset(all_thr_june,current_user!='Current')
+filtered$ppsum <- rowSums(filtered[,c(37:42,46:49,55)])
+filtered$plpr<- ifelse(filtered$ppsum!=0,1,0)
+#plpr0  plpr1 
+#13258   277 
+
+
+###include only answers, user_if, conv_homepage, segment
+file_in <-filtered[,c(60,104,113,121,130,139,148,157,166,175,184,193,202:207,213,222,231,240,249,258,267,276,285,294,296)]
+
+
+###recode
+file_in$cell <- ifelse(file_in$cell=='test',1,0)
+file_in[,c(2:12,19:27)] <- ifelse(file_in[,c(2:12,19:27)]=='Checked','1','0')
+file_in[13:17] <- ifelse(file_in[13:17]=='Somewhat likely' | file_in[13:17]=='Very likely', '1','0')
+
+file_in$VAR1 <- as.character(file_in$VAR1)
+file_in$VAR1[file_in$VAR1 == "expired" | file_in$VAR1 == 'Dont know' ] <- 0
+file_in$VAR1[file_in$VAR1=="Less than a month from now"] <- 1
+file_in$VAR1[file_in$VAR1=="1-2 months from now"] <- 2
+file_in$VAR1[file_in$VAR1=="3-6 months from now"] <- 3
+file_in$VAR1[file_in$VAR1=="Over 6 months but less than 1 year from now"] <- 4
+file_in$VAR1[file_in$VAR1=="Over 1 year from now"] <- 5
+
+file_in$SEGMENT <- as.character(file_in$SEGMENT)
+file_in$SEGMENT[file_in$SEGMENT == "S1"] <- 0
+file_in$SEGMENT[file_in$SEGMENT == "S2"] <- 1
+file_in$SEGMENT[file_in$SEGMENT == "S3"] <- 2
+
+##numeric dataset (used to get factor scores)
+for (i in c(1:28)){  
+  file_in[,i] <- as.numeric(file_in[,i])
+  }
+numdat <- file_in[,c(-1,-29)]
+
+
+##recode col to factor
+
+#sapply(file_in, class)
+for(i in c(1:28)) {
+    file_in[,i] <- as.factor(as.character(file_in[,i]))
+}
+
+##exclude plpr
+dat <- file_in[,c(-1,-29)]
+
+
+library(polycor)
+library(psych)
+het_mat <- hetcor(dat)$cor
+#write.table(het_mat,file="C:/Users/xiachai/Desktop/het_matrix.csv",sep=",",append=TRUE, col.names = NA)
+#NOTE: make sure each var in dat has more than 1 level
+
+##determine number of factors
+vss(het_mat,n.obs=nrow(dat), rotate="varimax")
+VSS.scree(het_mat, main = "scree plot")
+
+
+##Factor analysis using polychoric correlation, number of factor set to 5
+
+fa.2 <- fa(r = het_mat, nfactors = 5, max.iter=200,n.obs = nrow(dat),fm='minres', rotate = "varimax")
+fa.2$loadings
+#plot(fa.2)
+fa.diagram(fa.2,e.size=.03,rsize=.15,marg=c(1,0,1,0))
+fa.graph(fa.2)
+
+##factor scores
+fs <- factor.scores(numdat,fa.2$loadings)
+#write.table(fs$scores,file="C:/Users/xiachai/Desktop/factor_scores.csv",sep=",",append=TRUE, col.names = NA)
+fsdat <- fs$scores
+
+
+##merge factor scores with original dataset, run logistic on 5 factors 
+fmerge <- merge(file_in, fsdat, by='row.names')
+mod2 <- glm(plpr~MR1+MR2+MR3+MR4+MR5+cell,family=binomial(logit),data=fmerge)
+summary(mod2)
+mod2_coeffs <- summary.glm(mod2)$coefficients
+#write.table(mod2_coeffs,file="C:/Users/xiachai/Desktop/FA_logistic.csv",sep=",",append=TRUE, col.names = NA )
+
+
+##Logistic on cell and 'var1'
+mod3 <- glm(plpr~cell+var1,family=binomial(logit),data=fmerge)
+summary(mod3)
+
+##Logistic on cell and 'var2'
+mod4 <- glm(plpr~cell+var2,family=binomial(logit),data=fmerge)
+summary(mod4)
+
+#######################Logistic with all vars in MR1,correlation between each var in MR1###############################
+mod_MR1 <- glm(plpr~var3+var4+var5+var6+var7+var8+var9+var10+var11,family=binomial(logit),data=fmerge)
+summary(mod_MR1)
+
+datMR1 <- fmerge[,c(5:13,26,27)]
+MR1_het_mat <- hetcor(datMR1)$cor
+#write.table(MR1_het_mat,file="C:/Users/xiachai/Desktop/MR1_het_matrix.csv",sep=",",append=TRUE, col.names = NA)
+########################################################################################################################
+
+
+##logistic model (on original dataset: 26 independent variables)
+mds<-file_in[,c(-1)]
+mod1<-glm(conv_homepage~ .,family=binomial(logit),data=mds)
+summary(mod1)
+results_df <-summary.glm(mod1)$coefficients
+#write.table(results_df,file="C:/Users/xiachai/Desktop/logistic.csv",sep=",",append=TRUE, col.names = NA)
+
+```
+
+
+```{r}
+#############Multinomial Logistic Regression#############
+
+all <- read.csv(file= "C:/Users/xiachai/Desktop/Xiaomeng Chai/IER.csv", head=TRUE, strip.white=T)
+
+###exclude currentusers
+filtered <- subset(all,current_user!='Current' & cell == 'test')
+
+##Create new outcome var with 4 levels
+file_MLR <- filtered[,c(1,26:28,32:46,51,68,77,85,94,103,112,121,130,139,148,157,166:171,184,193,202,211,220,229,238,247,256,272)]
+file_MLR$sum <- rowSums(file_MLR[ , 2:20])
+file_MLR$outcome[file_MLR$sum == 0] <- 0 #level 0
+file_MLR$outcome[file_MLR$sum == 1 & (file_MLR$conv_homepage==1 | file_MLR$conv_smb_homepage==1)] <- 1 #level 1
+file_MLR$outcome[file_MLR$conv_cart==1|file_MLR$conv_purch_con==1|file_MLR$conv_storeloc==1|file_MLR$conv_smb_cart==1|file_MLR$conv_smb_order_recap==1|file_MLR$conv_store_locator==1] <-3 #level 3
+file_MLR$outcome[is.na(file_MLR$outcome)] <- 2 #level 2
+
+
+datmlr <- file_MLR[,c(21:47,49)]
+datmlr[,c(1:11,18:26)] <- ifelse(datmlr[,c(1:11,18:26)]=='Checked','1','0')
+datmlr[,c(12:16)] <- ifelse(datmlr[,c(12:16)]=='Somewhat likely' | datmlr[,c(12:16)]=='Very likely', '1','0')
+
+datmlr$VAR1 <- as.character(datmlr$VAR1)
+datmlr$VAR1[datmlr$VAR1 == "expired" | datmlr$VAR1 == 'Dont know' ] <- 0
+datmlr$VAR1[datmlr$VAR1=="Less than a month from now"] <- 1
+datmlr$VAR1[datmlr$VAR1=="1-2 months from now"] <- 2
+datmlr$VAR1[datmlr$VAR1=="3-6 months from now"] <- 3
+datmlr$VAR1[datmlr$VAR1=="Over 6 months but less than 1 year from now"] <- 4
+datmlr$VAR1[datmlr$VAR1=="Over 1 year from now"] <- 5
+
+datmlr$SEGMENT <- as.character(datmlr$SEGMENT)
+datmlr$SEGMENT[datmlr$SEGMENT=="S1"] <- 0
+datmlr$SEGMENT[datmlr$SEGMENT=="S2"] <- 1
+datmlr$SEGMENT[datmlr$SEGMENT=="S3"] <- 2
+
+for(i in c(1:28)) {
+    datmlr[,i] <- as.factor(as.character(datmlr[,i]))
+}
+
+
+library(nnet)
+datmlr$outcome2 <- relevel(datmlr$outcome, ref = "0")
+mlr1 <- multinom(outcome2 ~ .-outcome, data = datmlr, maxit=1000)
+results <- summary(mlr1)
+#write.table(results$coefficients,file="C:/Users/xiachai/Desktop/ML.csv",sep=",",append=TRUE, col.names = NA)
+
+#2-tail Wald test
+z <- results$coefficients/results$standard.errors
+p <- (1 - pnorm(abs(z), 0, 1)) * 2 
+#write.table(p,file="C:/Users/xiachai/Desktop/ML.csv",sep=",",append=TRUE, col.names = NA)
+
+#predicted probabilities for outcome 
+head(pp <- fitted(mlr1))
+
+```
+
+
+
+
+
+
+
+
+
