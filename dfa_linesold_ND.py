@@ -1,5 +1,5 @@
 ##################################################################################
-# 
+# NOTE: need to sort input file by ID and timestamp before running this code!!!
 # The purpose of this script is to de-dup DFA activity file.
 #Output: text files
 #Author: Xiaomeng Chai <chaixiaomeng@gmail.com>
@@ -30,8 +30,7 @@ fn_out = output_directory + "June_DFA_Linesold_ND_" + str(start_date) + "_" + st
 fn_out2 = output_directory + "June_DFA_Linesold_dups_" + str(start_date) + "_" + str(end_date) + ".txt"
 
 counter = 0
-past_SID = None
-past_timestamp = None
+past_SID_timestamp= None
 fh_out = open(fn_out,'w')
 fh_out2 = open(fn_out2, 'w')
 
@@ -53,14 +52,14 @@ with open(fn_in,'r') as fh_in:
 			lines = 0
 			
 		event = SID + "|" + timestamp + "|" + conv_type + "|" + str(lines)
+		SID_timestamp = SID + "|" + timestamp
 		
-		if (SID != past_SID and timestamp != past_timestamp):			
+		if SID_timestamp != past_SID_timestamp:			
 			print >> fh_out, '%s' %(event)
 		else:
 			print >>fh_out2, '%s' %(event)
 			
-		past_SID = SID
-		past_timestamp = timestamp
+		past_SID_timestamp = SID_timestamp
 		counter += 1
 		
 		if (counter % 1000000 == 0):
