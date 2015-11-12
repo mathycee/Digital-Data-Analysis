@@ -40,10 +40,11 @@ with open(fn_in,'r') as fh_in:
 		timestamp = v[1]
 		conv_type = v[2]
 		lines = v[3]
+		YYYYMMDD = int(timestamp[:8])
 		
 		SID_timestamp = SID + "|" + timestamp
 		
-		if SID_timestamp != past_SID_timestamp:
+		if SID_timestamp != past_SID_timestamp and YYYYMMDD >= start_date and YYYYMMDD <= end_date:
 			print >> fh_out, '%s' %("|".join(v))
 		else:
 			print >>fh_out2, '%s' %("|".join(v))
