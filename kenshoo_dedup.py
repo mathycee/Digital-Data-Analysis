@@ -1,5 +1,5 @@
 ##################################################################################
-# NOTE: need to sort input file by ID and timestamp before running this code!!!
+# NOTE: need to sort input file by ID, timestamp, order_id before running this code!!!
 # The purpose of this script is to de-dup kenshoo activity file.
 #Output: text file
 #Author: Xiaomeng Chai <chaixiaomeng@gmail.com>
